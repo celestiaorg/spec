@@ -1,3 +1,5 @@
+<!-- markdown-link-check-disable -->
+
 # Proposer-Based Time
 
 ## Current BFTTime
@@ -261,9 +263,9 @@ This specification describes the changes needed to be done to the Tendermint con
 
 [lcspec]: https://github.com/tendermint/spec/blob/439a5bcacb5ef6ef1118566d7b0cd68fff3553d4/rust-spec/lightclient/README.md
 
-[algorithm]: ./pbts-algorithm_001_draft.md
+[algorithm]: ./pbts-algorithm_002_draft.md
 
-[sysmodel]: ./pbts-sysmodel_001_draft.md
+[sysmodel]: ./pbts-sysmodel_002_draft.md
 
 [main]: ./pbts_001_draft.md
 
