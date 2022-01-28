@@ -37,10 +37,9 @@ message Request {
     RequestApplySnapshotChunk  apply_snapshot_chunk  = 14;
     RequestPrepareProposal     prepare_proposal      = 15;
     RequestProcessProposal     process_proposal      = 16;
-    RequestExtendVote          extend_vote           = 17;
-    RequestVerifyVoteExtension verify_vote_extension = 18;
     RequestFinalizeBlock       finalize_block        = 19;
   }
+  reserved 17, 18; // Future vote extensions
 }
 
 message RequestEcho {
@@ -142,21 +141,6 @@ message RequestProcessProposal {
   repeated Evidence       byzantine_validators = 5 [(gogoproto.nullable) = false];
 }
 
-// Extends a vote with application-side injection
-message RequestExtendVote {
-  bytes hash   = 1;
-  int64 height = 2;
-}
-
-// Verify the vote extension
-message RequestVerifyVoteExtension {
-  bytes app_signed        = 1;
-  bytes tendermint_signed = 2;
-  bytes hash              = 3;
-  bytes validator_address = 4;
-  int64 height            = 5;
-}
-
 message RequestFinalizeBlock {
   bytes                   hash                 = 1;
   tendermint.types.Header header               = 2 [(gogoproto.nullable) = false];
@@ -187,10 +171,9 @@ message Response {
     ResponseApplySnapshotChunk  apply_snapshot_chunk  = 15;
     ResponsePrepareProposal     prepare_proposal      = 16;
     ResponseProcessProposal     process_proposal      = 17;
-    ResponseExtendVote          extend_vote           = 18;
-    ResponseVerifyVoteExtension verify_vote_extension = 19;
     ResponseFinalizeBlock       finalize_block        = 20;
   }
+  reserved 18, 19; // Future vote extensions
 }
 
 // nondeterministic
@@ -331,15 +314,6 @@ message ResponseProcessProposal {
   repeated ExecTxResult            tx_results              = 3;
   repeated ValidatorUpdate         validator_updates       = 4 [(gogoproto.nullable) = false];
   tendermint.types.ConsensusParams consensus_param_updates = 5;
-}
-
-message ResponseExtendVote {
-  bytes app_signed        = 1;
-  bytes tendermint_signed = 2;
-}
-
-message ResponseVerifyVoteExtension {
-  bool accept = 1;
 }
 
 message ResponseFinalizeBlock {
@@ -485,7 +459,5 @@ service ABCIApplication {
   rpc ApplySnapshotChunk(RequestApplySnapshotChunk) returns (ResponseApplySnapshotChunk);
   rpc PrepareProposal(RequestPrepareProposal) returns (ResponsePrepareProposal);
   rpc ProcessProposal(RequestProcessProposal) returns (ResponseProcessProposal);
-  rpc ExtendVote(RequestExtendVote) returns (ResponseExtendVote);
-  rpc VerifyVoteExtension(RequestVerifyVoteExtension) returns (ResponseVerifyVoteExtension);
   rpc FinalizeBlock(RequestFinalizeBlock) returns (ResponseFinalizeBlock);
 }
