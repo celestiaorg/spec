@@ -292,7 +292,7 @@ title: Methods
     | txs                     | repeated bytes                              | Preliminary list of transactions that have been picked as part of the block to propose.                          | 3            |
     | last_commit_info        | [LastCommitInfo](#lastcommitinfo)           | Info about the last commit, including the round, the validator list, and which ones signed the last block.       | 4            |
     | byzantine_validators    | repeated [Evidence](#evidence)              | List of evidence of validators that acted maliciously.                                                           | 5            |
-    | max_bytes               | int64                                       | Currently configured maximum size of a block.                                                                    | 6            |
+    | max_tx_bytes            | int64                                       | Currently configured maximum size in bytes taken by the modified transactions.                                   | 6            |
 
 >**TODO**: Add the changes needed in LastCommitInfo for vote extensions
 
@@ -309,6 +309,7 @@ From the App's perspective, they'll probably skip ProcessProposal
     | tx_results              | repeated [ExecTxResult](#txresult)               | List of structures containing the data resulting from executing the transactions            | 4            |
     | validator_updates       | repeated [ValidatorUpdate](#validatorupdate)     | Changes to validator set (set voting power to 0 to remove).                                 | 5            |
     | consensus_param_updates | [ConsensusParams](#consensusparams)              | Changes to consensus-critical gas, size, and other parameters.                              | 6            |
+    | app_signed_updates      | repeated bytes                                   | Optional changes to the *app_signed* part of vote extensions.                               | 7            |
 
 * **Usage**:
     * Contains a preliminary block to be proposed, called _raw block_, which the Application can modify.
@@ -320,8 +321,12 @@ From the App's perspective, they'll probably skip ProcessProposal
       them in `ResponsePrepareProposal`. In that case, `ResponsePrepareProposal.modified_tx` is set to true.
     * If `ResponsePrepareProposal.modified_tx` is false, then Tendermint will ignore the contents of
       `ResponsePrepareProposal.txs`.
-    * If the Application modifies the transactions, the modified block MUST NOT exceed the configured maximum size,
-      contained in `RequestPrepareProposal.max_bytes`.
+    * If the Application modifies the transactions, the modified transactions MUST NOT exceed the configured maximum size,
+      contained in `RequestPrepareProposal.max_tx_bytes`.
+    * If the Application modifies the *app_signed* part of vote extensions via `ResponsePrepareProposal.app_signed_updates`,
+      the new total size of those extensions cannot exceed their initial size.
+    * The Application may choose to not modify the *app_signed* part of vote extensions by leaving parameter
+      `ResponsePrepareProposal.app_signed_updates` empty.
     * In same-block execution mode, the Application must provide values for `ResponsePrepareProposal.app_hash`,
       `ResponsePrepareProposal.tx_results`, `ResponsePrepareProposal.validator_updates`, and
       `ResponsePrepareProposal.consensus_param_updates`, as a result of fully executing the block.
@@ -362,9 +367,9 @@ From the App's perspective, they'll probably skip ProcessProposal
       In particular, `ResponsePrepareProposal.txs` will be deemed invalid if
         * There is a duplicate transaction in the list.
         * The `new_hashes` field contains a dangling reference to a non-existing transaction.
-        * A new or modified transaction is marked as "TXACTION_UNMODIFIED" or "TXACTION_REMOVED".
-        * An unmodified transaction is marked as "TXACTION_ADDED".
-        * A transaction is marked as "TXACTION_UNKNOWN".
+        * A new or modified transaction is marked as "TXUNMODIFIED" or "TXREMOVED".
+        * An unmodified transaction is marked as "TXADDED".
+        * A transaction is marked as "TXUNKNOWN".
     * If Tendermint's sanity checks on the parameters of `ResponsePrepareProposal` fails, then it will drop the proposal
       and proceed to the next round (thus simulating a network loss/delay of the proposal).
         * **TODO**: [From discussion with William] Another possibility here is to panic. What do folks think we should do here?
@@ -708,19 +713,6 @@ Most of the data structures used in ABCI are shared [common data structures](../
     * Validator identified by PubKey
     * Used to tell Tendermint to update the validator set
 
-### VoteInfo
-
-* **Fields**:
-
-    | Name              | Type                    | Description                                                  | Field Number |
-    |-------------------|-------------------------|--------------------------------------------------------------|--------------|
-    | validator         | [Validator](#validator) | A validator                                                  | 1            |
-    | signed_last_block | bool                    | Indicates whether or not the validator signed the last block | 2            |
-
-* **Usage**:
-    * Indicates whether a validator signed the last block, allowing for rewards
-    based on validator availability
-
 ### Evidence
 
 * **Fields**:
@@ -801,8 +793,24 @@ Most of the data structures used in ABCI are shared [common data structures](../
     `Metadata`). Chunks may be retrieved from all nodes that have the same snapshot.
     * When sent across the network, a snapshot message can be at most 4 MB.
 
-## Data types introduced in ABCI++
+## Data types introduced or modified in ABCI++
 
+### VoteInfo
+
+* **Fields**:
+
+    | Name                        | Type                    | Description                                                   | Field Number |
+    |-----------------------------|-------------------------|---------------------------------------------------------------|--------------|
+    | validator                   | [Validator](#validator) | A validator                                                   | 1            |
+    | signed_last_block           | bool                    | Indicates whether or not the validator signed the last block  | 2            |
+    | tendermint_signed_extension | bytes                   | Indicates whether or not the validator signed the last block  | 3            |
+    | app_signed_extension        | bytes                   | Indicates whether or not the validator signed the last block  | 3            |
+
+* **Usage**:
+    * Indicates whether a validator signed the last block, allowing for rewards
+    based on validator availability
+    * `tendermint_signed_extension` conveys the part of the validator's vote extension that was signed by Tendermint.
+    * `app_signed_extension` conveys the optional *app_signed* part of the validator's vote extension.
 ### ExecTxResult
 
 * **Fields**:
@@ -822,19 +830,19 @@ Most of the data structures used in ABCI are shared [common data structures](../
 
 ```protobuf
   enum TxAction {
-    TXACTION_UNKNOWN    = 0;  // Unknown action
-    TXACTION_UNMODIFIED = 1;  // The Application did not modify this transaction. Ignore new_hashes field
-    TXACTION_ADDED      = 2;  // The Application added this transaction. Ignore new_hashes field
-    TXACTION_REMOVED    = 3;  // The Application wants this transaction removed from the proposal and the mempool.
-                            // Use new_hashes field if the transaction was modified
+    TXUNKNOWN    = 0;  // Unknown action
+    TXUNMODIFIED = 1;  // The Application did not modify this transaction. Ignore new_hashes field
+    TXADDED      = 2;  // The Application added this transaction. Ignore new_hashes field
+    TXREMOVED    = 3;  // The Application wants this transaction removed from the proposal and the mempool.
+                       // Use new_hashes field if the transaction was modified
   }
 ```
 
 * **Usage**:
-    * If `Action` is TXACTION_UNKNOWN, a problem happened in the Application. Tendermint will ignore this transaction. **TODO** should we panic?
-    * If `Action` is TXACTION_UNMODIFIED, Tendermint includes the transaction in the proposal. Nothing to do on the mempool. Field `new_hashes` is ignored.
-    * If `Action` is TXACTION_ADDED, Tendermint includes the transaction in the proposal. The transaction is also added to the mempool and gossipped. Field `new_hashes` is ignored.
-    * If `Action` is TXACTION_REMOVED, Tendermint excludes the transaction from the proposal. The transaction is also removed from the mempool if it exists,
+    * If `Action` is TXUNKNOWN, a problem happened in the Application. Tendermint will ignore this transaction. **TODO** should we panic?
+    * If `Action` is TXUNMODIFIED, Tendermint includes the transaction in the proposal. Nothing to do on the mempool. Field `new_hashes` is ignored.
+    * If `Action` is TXADDED, Tendermint includes the transaction in the proposal. The transaction is also added to the mempool and gossipped. Field `new_hashes` is ignored.
+    * If `Action` is TXREMOVED, Tendermint excludes the transaction from the proposal. The transaction is also removed from the mempool if it exists,
       similar to `CheckTx` returning _false_. Tendermint can use field `new_hashes` to help clients trace transactions that have been modified into other transactions.
 
 ### TransactionRecord

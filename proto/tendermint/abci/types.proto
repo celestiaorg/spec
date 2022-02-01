@@ -130,8 +130,8 @@ message RequestPrepareProposal {
   repeated bytes          txs                  = 3;
   LastCommitInfo          last_commit_info     = 4 [(gogoproto.nullable) = false];
   repeated Evidence       byzantine_validators = 5 [(gogoproto.nullable) = false];
-  // the modified block cannot exceed this size.
-  int64                   max_bytes            = 6;
+  // the modified transactions cannot exceed this size.
+  int64                   max_tx_bytes         = 6;
 }
 
 message RequestProcessProposal {
@@ -228,8 +228,8 @@ message ResponseCheckTx {
   bytes          data       = 2;
   string         log        = 3;  // nondeterministic
   string         info       = 4;  // nondeterministic
-  int64          gas_wanted = 5 [json_name = "gas_wanted"];
-  int64          gas_used   = 6 [json_name = "gas_used"];
+  int64          gas_wanted = 5;
+  int64          gas_used   = 6;
   repeated Event events     = 7 [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
   string         codespace  = 8;
   string         sender     = 9;
@@ -305,16 +305,17 @@ message ResponsePrepareProposal {
   bool                             modified_tx             = 1;
   repeated TransactionRecord       txs                     = 2;
   bytes                            app_hash                = 3;
-  repeated ExecTxResult            tx_results             = 4;
-  repeated ValidatorUpdate         validator_updates       = 5 [(gogoproto.nullable) = false];
+  repeated ExecTxResult            tx_results              = 4;
+  repeated ValidatorUpdate         validator_updates       = 5;
   tendermint.types.ConsensusParams consensus_param_updates = 6;
+  repeated bytes                   app_signed_updates      = 7;
 }
 
 message ResponseProcessProposal {
   bool                             accept                  = 1;
   bytes                            app_hash                = 2;
   repeated ExecTxResult            tx_results              = 3;
-  repeated ValidatorUpdate         validator_updates       = 4 [(gogoproto.nullable) = false];
+  repeated ValidatorUpdate         validator_updates       = 4;
   tendermint.types.ConsensusParams consensus_param_updates = 5;
 }
 
@@ -322,7 +323,7 @@ message ResponseFinalizeBlock {
   repeated Event                   block_events            = 1
       [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];
   repeated ExecTxResult            tx_results              = 2;
-  repeated ValidatorUpdate         validator_updates       = 3 [(gogoproto.nullable) = false];
+  repeated ValidatorUpdate         validator_updates       = 3;
   tendermint.types.ConsensusParams consensus_param_updates = 4;
   bytes                            app_hash                = 5;
   int64                            retain_height           = 6;
@@ -359,8 +360,8 @@ message ExecTxResult {
   bytes          data       = 2;
   string         log        = 3;  // nondeterministic
   string         info       = 4;  // nondeterministic
-  int64          gas_wanted = 5 [json_name = "gas_wanted"];
-  int64          gas_used   = 6 [json_name = "gas_used"];
+  int64          gas_wanted = 5;
+  int64          gas_used   = 6;
   repeated Event tx_events  = 7
       [(gogoproto.nullable) = false, (gogoproto.jsontag) = "events,omitempty"];  // nondeterministic
   string          codespace = 8;
@@ -376,19 +377,19 @@ message TxResult {
   ResponseDeliverTx result = 4 [(gogoproto.nullable) = false];
 }
 
-// TxAction contains App-provided information on what to do with a transaction that is part of a raw proposal
-enum TxAction {
-  ACTION_UNKNOWN    = 0;  // Unknown action
-  ACTION_UNMODIFIED = 1;  // The Application did not modify this transaction. Ignore new_hashes field
-  ACTION_ADDED      = 2;  // The Application added this transaction. Ignore new_hashes field
-  ACTION_REMOVED    = 3;  // The Application wants this transaction removed from the proposal and the mempool.
-                          // Use #new_hashes field if the transaction was modified
-}
-
 message TransactionRecord {
   TxAction action           = 1;
   bytes tx                  = 2;
   repeated bytes new_hashes = 3;
+
+  // TxAction contains App-provided information on what to do with a transaction that is part of a raw proposal
+  enum TxAction {
+    UNKNOWN    = 0;  // Unknown action
+    UNMODIFIED = 1;  // The Application did not modify this transaction. Ignore new_hashes field
+    ADDED      = 2;  // The Application added this transaction. Ignore new_hashes field
+    REMOVED    = 3;  // The Application wants this transaction removed from the proposal and the mempool.
+                     // Use #new_hashes field if the transaction was modified
+  }
 }
 
 //----------------------------------------
@@ -409,8 +410,10 @@ message ValidatorUpdate {
 
 // VoteInfo
 message VoteInfo {
-  Validator validator         = 1 [(gogoproto.nullable) = false];
-  bool      signed_last_block = 2;
+  Validator validator                   = 1 [(gogoproto.nullable) = false];
+  bool      signed_last_block           = 2;
+  bytes     tendermint_signed_extension = 3;
+  bytes     app_signed_extension        = 4;
 }
 
 enum EvidenceType {
