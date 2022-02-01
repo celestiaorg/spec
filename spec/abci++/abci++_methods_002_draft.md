@@ -856,6 +856,8 @@ Most of the data structures used in ABCI are shared [common data structures](../
     | new_hashes | repeated bytes        | List of hashes of successor transactions                         | 3            |
 
 * **Usage**:
+    * The hashes contained in `new_hashes` MUST follow the same algorithm used by Tendermint for hashing transactions
+      that are in the mempool.
     * As `new_hashes` is a list, `TransactionRecord` allows to trace many-to-many modifications. Some examples:
         * Transaction $t1$ modified into $t2$ is represented with these records
             * $t2$ "ADDED"
