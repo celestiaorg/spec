@@ -303,7 +303,7 @@ message ResponsePrepareProposal {
   bool                             modified_tx             = 1;
   repeated TransactionRecord       txs                     = 2;
   bytes                            app_hash                = 3;
-  repeated ExecTxResult            tx_resultsq             = 4;
+  repeated ExecTxResult            tx_results             = 4;
   repeated ValidatorUpdate         validator_updates       = 5 [(gogoproto.nullable) = false];
   tendermint.types.ConsensusParams consensus_param_updates = 6;
 }
