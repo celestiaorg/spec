@@ -1,6 +1,6 @@
 # This Dockerfile defines an image containing tools for linting, formatting,
 # and compiling the Tendermint protos.
-FROM golang:1.17-alpine
+FROM golang:1.19.10-alpine
 
 # Install a commonly used set of programs for use with our protos.
 # clang-extra-tools is included here because it provides clang-format,
